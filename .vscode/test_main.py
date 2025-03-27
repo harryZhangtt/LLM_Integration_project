@@ -2,8 +2,10 @@ import unittest
 import requests
 from util import delete_all_users
 from database import SessionLocal
-
+"""before running testcase, listen to this port 'uvicorn main:app --reload --port 8080'
+    """
 BASE_URL = "http://127.0.0.1:8080"
+CHATGPT_API_KEY = "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"
 
 class TestUserEndpoints(unittest.TestCase):
     def setUp(self):
@@ -187,33 +189,40 @@ class TestUserEndpoints(unittest.TestCase):
         self.assertIsNotNone(chat_room_id, "Chat Room ID not returned after creation.")
 
         # Step 3: Send a message to the chat room
-        user_message = "Hi, how are you?"
-        message_payload = {
-            "name": "test1",  # Match the key name in the systematic_api_key field
-            "key": "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"
+        from openai import OpenAI
+
+        # Initialize the OpenAI client
+        try:
+            client = OpenAI(api_key=CHATGPT_API_KEY)
+        except Exception as e:
+            self.fail(f"Failed to initialize OpenAI client. Error: {e}")
+
+        # Define the request payload
+        payload = {
+            "model": "gpt-4o",  # Ensure this model is available for your API key
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Hi, how are you?"
+                }
+            ]
         }
-        response = requests.post(
-            f"{BASE_URL}/users/{user_id}/chat_rooms/{chat_room_id}/messages_with_key/",
-            params={"message": user_message},
-            json=message_payload
-        )
 
-        # Debugging steps for failure
-        if response.status_code != 200:
-            print("Failed to send message:")
-            print(f"Status Code: {response.status_code}")
-            print(f"Response JSON: {response.json()}")
-            print(f"Request URL: {response.request.url}")
-            print(f"Request Headers: {response.request.headers}")
-            print(f"Request Body: {response.request.body}")
-
-        self.assertEqual(response.status_code, 200, f"Failed to send message: {response.json()}")
-        chat_response = response.json().get("chatgpt_response")
-        self.assertIsNotNone(chat_response, "ChatGPT response not returned.")
-        print(f"ChatGPT Response: {chat_response}")  # Debugging print
+        # Send the request and handle the response
+        try:
+            completion = client.chat.completions.create(**payload)
+            chat_response = completion.choices[0].message.content
+            self.assertIsNotNone(chat_response, "ChatGPT response not returned.")
+            print(f"ChatGPT Response: {chat_response}")  # Debugging print
+        except Exception as e:
+            self.fail(f"Failed to get a response from the OpenAI API. Error: {e}")
 
         # Step 4: Verify the chat history
         response = requests.get(f"{BASE_URL}/users/{user_id}/chat_histories/")
+        print("Chat History API Response:")
+        print(f"Status Code: {response.status_code}")
+        print(f"Response JSON: {response.json()}")
+
         self.assertEqual(response.status_code, 200, f"Failed to retrieve chat histories: {response.json()}")
         chat_histories = response.json().get("chat_histories", [])
         self.assertEqual(len(chat_histories), 1, "Chat histories should contain one entry.")
