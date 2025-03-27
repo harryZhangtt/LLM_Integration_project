@@ -7,8 +7,11 @@ from ORM_model.chat_room import *
 from ORM_model.chat_history import *
 from schemas.user import *
 from schemas.chat import *
+from schemas.chat import APIKeySelect  # Ensure this import is present
 from schemas.chat_history import *
 from util import *  # Import delete_all_users from util.py
+from services.chat_service import send_message_and_record  # Import the function
+import requests
 
 # Create all tables in the PostgreSQL database
 Base.metadata.create_all(bind=engine)
@@ -38,13 +41,15 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         email=user.email,
         username=user.username,
         subscription_status=None,  # Default value for subscription_status
-        systematic_api_key=None,  # Default value for systematic_api_key
-        customized_api_key=None   # Default value for customized_api_key
+        systematic_api_key={  # Specify the systematic API key dictionary
+            "test1": "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"
+        },
+        customized_api_key=None  # Default value for customized_api_key
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    print(f"User created successfully: {new_user.email}, ID: {new_user.id}")  # Debugging print
+    print(f"User created successfully: {new_user.email}, ID: {new_user.id}, API Keys: {new_user.systematic_api_key}")  # Debugging print
     return new_user
 
 @app.get("/users/{user_id}", response_model=UserResponse)
@@ -123,6 +128,32 @@ def delete_all_users_endpoint(db: Session = Depends(get_db)):
     """Endpoint to delete all users and their dependent records."""
     try:
         return delete_all_users(db)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/users/{user_id}/chat_rooms/{chat_room_id}/messages_with_key/")
+def send_message_with_key(user_id: int, chat_room_id: int, message: str, api_key: APIKeySelect, db: Session = Depends(get_db)):
+    """
+    Send a message to ChatGPT using the provided API key and record the response.
+    """
+    user = db.query(User).get(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    chat_room = db.query(ChatRoom).get(chat_room_id)
+    if not chat_room:
+        raise HTTPException(status_code=404, detail="Chat room not found")
+    try:
+        # Debugging: Print the user's API keys
+        print(f"User's API Keys: {user.systematic_api_key}")  # Debugging print
+
+        # Retrieve the API key using the provided name
+        selected_api_key = user.get_systematic_api_key(api_key.name)
+
+        # Call the send_message_and_record function with the selected API key
+        response = send_message_and_record(user_id, chat_room_id, message, db, selected_api_key)
+        return response
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

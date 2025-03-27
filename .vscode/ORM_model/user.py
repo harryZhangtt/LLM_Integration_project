@@ -34,3 +34,19 @@ class User(Base):
         """Retrieve all chat histories associated with the user."""
         from .chat_history import ChatHistory  # Import locally to avoid circular import
         return db.query(ChatHistory).filter(ChatHistory.user_id == self.id).all()
+
+    def set_systematic_api_key(self, key_name: str, key_value: str):
+        """
+        Set a systematic API key for the user.
+        """
+        if not self.systematic_api_key:
+            self.systematic_api_key = {}
+        self.systematic_api_key[key_name] = key_value
+
+    def get_systematic_api_key(self, key_name: str) -> str:
+        """
+        Get a systematic API key by its name.
+        """
+        if not self.systematic_api_key or key_name not in self.systematic_api_key:
+            raise ValueError(f"API key name '{key_name}' not found.")
+        return self.systematic_api_key[key_name]

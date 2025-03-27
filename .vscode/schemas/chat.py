@@ -34,3 +34,10 @@ class ChatRoomResponse(ChatRoomBase):
 
     class Config:
         from_attributes = True
+
+class APIKeySelect(BaseModel):
+    """
+    Schema for selecting an API key by its name and key.
+    """
+    name: str
+    key: str
